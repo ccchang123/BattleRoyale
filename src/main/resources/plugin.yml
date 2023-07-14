@@ -1,0 +1,23 @@
+name: BattleRoyale
+version: '${project.version}'
+main: cc.battleroyale.BattleRoyale
+api-version: "1.20"
+authors: [ cc_chang ]
+description: BattleRoyale
+commands:
+  battleroyale:
+    description: Commands of the Battle Royale.
+    usage: /<command> [args]
+    permission: BattleRoyale.command
+  vantage:
+    description: Skill of vantage.
+    usage: /<command> (player)
+    permission: BattleRoyale.skill.vantage
+  revenant:
+    description: Skill of revenant.
+    usage: /<command> (player)
+    permission: BattleRoyale.skill.revenant
+  rank:
+    description: Commands of the Rank mode Battle Royale.
+    usage: /<command> [args]
+    permission: BattleRoyale.command.rank

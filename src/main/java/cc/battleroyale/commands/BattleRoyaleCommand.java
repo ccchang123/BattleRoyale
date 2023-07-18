@@ -62,24 +62,25 @@ public class BattleRoyaleCommand implements CommandExecutor {
                     catch (Exception ignored) { }
                 }
                 else if (args[0].equals("ring")) {
-                    sender.getServer().getWorld(args[1]).getPlayers().forEach((e) -> {
-                        if (GetPlayerDistanceToBorder(e) <= 15) {
-                            List<String> SoundList = new ArrayList<>();
-                            Random random = new Random();
-                            if (args[2].equals("start")) {
-                                SoundList.add("ringstart1");
-                                SoundList.add("ringstart2");
-                                SoundList.add("ringstart3");
-                                SoundList.add("ringstart4");
+                    World world = sender.getServer().getWorld(args[1]);
+                    List<String> SoundList = new ArrayList<>();
+                    Random random = new Random();
+                    if (args[2].equals("start")) {
+                        SoundList.add("ringstart1");
+                        SoundList.add("ringstart2");
+                        SoundList.add("ringstart3");
+                        SoundList.add("ringstart4");
 
-                            }
-                            else if (args[2].equals("stop")) {
-                                SoundList.add("ringstop1");
-                                SoundList.add("ringstop2");
-                                SoundList.add("ringstop3");
-                                SoundList.add("ringstop4");
-                            }
-                            int index = random.nextInt(SoundList.size());
+                    }
+                    else if (args[2].equals("stop")) {
+                        SoundList.add("ringstop1");
+                        SoundList.add("ringstop2");
+                        SoundList.add("ringstop3");
+                        SoundList.add("ringstop4");
+                    }
+                    int index = random.nextInt(SoundList.size());
+                    world.getPlayers().forEach((e) -> {
+                        if (GetPlayerDistanceToBorder(e) <= 20 && world.getWorldBorder().isInside(e.getLocation())) {
                             e.playSound(e.getLocation(), SoundList.get(index), 1.0f, 1.0f);
                         }
                     });
@@ -90,24 +91,15 @@ public class BattleRoyaleCommand implements CommandExecutor {
     }
 
     public double GetPlayerDistanceToBorder(Player player) {
-        World world = player.getWorld();
-        WorldBorder worldBorder = world.getWorldBorder();
-
-        double playerX = player.getLocation().getX();
-        double playerZ = player.getLocation().getZ();
-        double centerX = worldBorder.getCenter().getX();
-        double centerZ = worldBorder.getCenter().getZ();
+        Location PlayerLocation = player.getLocation();
+        WorldBorder worldBorder = player.getWorld().getWorldBorder();
+        Location WorldBorderCenter = worldBorder.getCenter();
 
         double borderSize = worldBorder.getSize() / 2.0;
 
-        double distanceX = Math.abs(Math.abs(centerX - playerX) - borderSize);
-        double distanceZ = Math.abs(Math.abs(centerZ - playerZ) - borderSize);
+        double distanceX = borderSize - Math.abs(WorldBorderCenter.getX() - PlayerLocation.getX());
+        double distanceZ = borderSize - Math.abs(WorldBorderCenter.getZ() - PlayerLocation.getZ());
 
-        if (worldBorder.isInside(player.getLocation())) {
-            return Math.min(distanceX, distanceZ);
-        }
-        else {
-            return Math.max(distanceX, distanceZ);
-        }
+        return Math.min(distanceX, distanceZ);
     }
 }

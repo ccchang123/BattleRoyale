@@ -1,18 +1,23 @@
 package cc.battleroyale.commands;
 
+import io.lumine.mythic.api.mobs.MythicMob;
+import io.lumine.mythic.bukkit.BukkitAdapter;
+import io.lumine.mythic.bukkit.MythicBukkit;
+import net.kyori.adventure.text.Component;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
 import org.bukkit.*;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
 public class BattleRoyaleCommand implements CommandExecutor {
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (command.getName().equalsIgnoreCase("battleroyale")) {
@@ -25,14 +30,25 @@ public class BattleRoyaleCommand implements CommandExecutor {
             else if (sender instanceof ConsoleCommandSender) {
                 if (args[0].equals("start")) {
                     World world = sender.getServer().getWorld(args[1]);
+                    ItemStack itemStack = new ItemStack(Material.PAPER, 1);
+                    ItemMeta itemMeta = itemStack.getItemMeta();
+                    itemMeta.displayName(Component.text("§c該槽位已被鎖定"));
+                    itemMeta.setCustomModelData(30);
+                    itemStack.setItemMeta(itemMeta);
                     world.getPlayers().forEach((e) -> {
+                        for (int i=1; i<=3; i++) {
+                            removePermission(e, "battleroyale.backpack." + i);
+                        }
+                        for (int i=9; i<=26; i++) {
+                            e.getInventory().setItem(i, itemStack);
+                        }
                         e.getInventory().setItem(38, new ItemStack(Material.ELYTRA, 1));
                         int player_x = (int) (Math.random() * 700) - 350;
                         int player_z = (int) (Math.random() * 780) - 390;
                         e.teleport(new Location(world, player_x, 238, player_z));
                         e.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 500,4, false, false, false));
                         e.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 200,0, false, false, false));
-                        e.playSound(e.getLocation(), "jumpmaster", 1.0f, 1.0f);
+                        e.playSound(e, "jumpmaster", 1.0f, 1.0f);
                     });
                 }
                 else if (args[0].equals("shield")) {
@@ -61,45 +77,21 @@ public class BattleRoyaleCommand implements CommandExecutor {
                     }
                     catch (Exception ignored) { }
                 }
-                else if (args[0].equals("ring")) {
-                    World world = sender.getServer().getWorld(args[1]);
-                    List<String> SoundList = new ArrayList<>();
-                    Random random = new Random();
-                    if (args[2].equals("start")) {
-                        SoundList.add("ringstart1");
-                        SoundList.add("ringstart2");
-                        SoundList.add("ringstart3");
-                        SoundList.add("ringstart4");
-
+                else if (args[0].equals("heatshield")) {
+                    MythicMob mob = MythicBukkit.inst().getMobManager().getMythicMob("world_boss_3_heatshield").orElse(null);
+                    Player player = Bukkit.getPlayer(args[1]);
+                    if (mob != null && player != null) {
+                        mob.spawn(BukkitAdapter.adapt(player.getLocation()),1);
                     }
-                    else if (args[2].equals("stop")) {
-                        SoundList.add("ringstop1");
-                        SoundList.add("ringstop2");
-                        SoundList.add("ringstop3");
-                        SoundList.add("ringstop4");
-                    }
-                    int index = random.nextInt(SoundList.size());
-                    world.getPlayers().forEach((e) -> {
-                        if (GetPlayerDistanceToBorder(e) <= 20 && world.getWorldBorder().isInside(e.getLocation())) {
-                            e.playSound(e.getLocation(), SoundList.get(index), 1.0f, 1.0f);
-                        }
-                    });
                 }
             }
         }
         return true;
     }
 
-    public double GetPlayerDistanceToBorder(Player player) {
-        Location PlayerLocation = player.getLocation();
-        WorldBorder worldBorder = player.getWorld().getWorldBorder();
-        Location WorldBorderCenter = worldBorder.getCenter();
-
-        double borderSize = worldBorder.getSize() / 2.0;
-
-        double distanceX = borderSize - Math.abs(WorldBorderCenter.getX() - PlayerLocation.getX());
-        double distanceZ = borderSize - Math.abs(WorldBorderCenter.getZ() - PlayerLocation.getZ());
-
-        return Math.min(distanceX, distanceZ);
+    public void removePermission(Player player, String permission) {
+        User user = LuckPermsProvider.get().getPlayerAdapter(Player.class).getUser(player);
+        user.data().remove(Node.builder(permission).build());
+        LuckPermsProvider.get().getUserManager().saveUser(user);
     }
 }

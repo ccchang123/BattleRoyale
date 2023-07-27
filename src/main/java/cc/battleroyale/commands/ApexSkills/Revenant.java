@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -44,7 +45,7 @@ public class Revenant implements CommandExecutor, Listener {
                         TotemLocation.remove(uuid);
                         player.hideBossBar(bossbar);
                     }
-                }.runTaskLater(plugin, 600L);
+                }.runTaskLater(plugin, 900L);
                 DeathTotem.put(player, timer);
                 TotemLocation.put(player.getUniqueId(), player.getLocation());
                 player.showBossBar(bossbar);
@@ -53,7 +54,7 @@ public class Revenant implements CommandExecutor, Listener {
         return true;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();

@@ -26,9 +26,10 @@ import java.util.UUID;
 
 public class Revenant implements CommandExecutor, Listener {
     private final Plugin plugin = BattleRoyale.getProvidingPlugin(this.getClass());
-    public static Map<Player, BukkitTask> DeathTotem = new HashMap<>();
+    public static Map<UUID, BukkitTask> DeathTotem = new HashMap<>();
     public static Map<UUID, Location> TotemLocation = new HashMap<>();
     public static BossBar bossbar = BossBar.bossBar(Component.text("§c已進入死亡保護"), 1, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (sender instanceof ConsoleCommandSender) {
@@ -41,12 +42,12 @@ public class Revenant implements CommandExecutor, Listener {
                         if (TotemLocation.containsKey(uuid)) {
                             player.playSound(player.getLocation(), "returntototem", 1.0f, 1.0f);
                         }
-                        DeathTotem.remove(player);
+                        DeathTotem.remove(player.getUniqueId());
                         TotemLocation.remove(uuid);
                         player.hideBossBar(bossbar);
                     }
                 }.runTaskLater(plugin, 900L);
-                DeathTotem.put(player, timer);
+                DeathTotem.put(player.getUniqueId(), timer);
                 TotemLocation.put(player.getUniqueId(), player.getLocation());
                 player.showBossBar(bossbar);
             }
@@ -63,7 +64,7 @@ public class Revenant implements CommandExecutor, Listener {
             player.teleportAsync(TotemLocation.get(uuid));
             player.playSound(player.getLocation(), "returntototem", 1.0f, 1.0f);
             TotemLocation.remove(uuid);
-            DeathTotem.remove(player);
+            DeathTotem.remove(player.getUniqueId());
             player.hideBossBar(bossbar);
         }
     }
@@ -74,7 +75,7 @@ public class Revenant implements CommandExecutor, Listener {
         UUID uuid = player.getUniqueId();
         if (TotemLocation.containsKey(uuid)) {
             TotemLocation.remove(uuid);
-            DeathTotem.remove(player);
+            DeathTotem.remove(player.getUniqueId());
             player.hideBossBar(bossbar);
         }
     }

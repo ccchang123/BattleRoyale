@@ -1,11 +1,15 @@
 package cc.battleroyale;
 
+import cc.battleroyale.commands.ApexSkills.Ash;
 import cc.battleroyale.commands.ApexSkills.Revenant;
 import cc.battleroyale.commands.ApexSkills.Vantage;
 import cc.battleroyale.commands.BattleRoyaleCommand;
 import cc.battleroyale.commands.RankCommand;
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeEvent;
 import io.papermc.paper.event.world.border.WorldBorderBoundsChangeFinishEvent;
+import me.clip.placeholderapi.PlaceholderAPI;
+import net.Indyuce.mmocore.api.event.PlayerEnterCastingModeEvent;
+import net.Indyuce.mmocore.api.player.PlayerData;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
@@ -14,7 +18,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
@@ -30,10 +33,10 @@ import java.util.*;
 
 public final class BattleRoyale extends JavaPlugin implements Listener {
     private static BattleRoyale plugin = null;
-    private static Map<Player, BukkitTask> OutSideRingSound = new HashMap<>();
-    private static Map<Player, BukkitTask> NearRingSound = new HashMap<>();
-    private static Map<Player, BukkitTask> FlyingPlayer = new HashMap<>();
-    private static Map<Player, BukkitTask> CheckOutsideRingPlayer = new HashMap<>();
+    private static Map<UUID, BukkitTask> OutSideRingSound = new HashMap<>();
+    private static Map<UUID, BukkitTask> NearRingSound = new HashMap<>();
+    private static Map<UUID, BukkitTask> FlyingPlayer = new HashMap<>();
+    private static Map<UUID, BukkitTask> CheckOutsideRingPlayer = new HashMap<>();
     private static List<String> PassRingSoundList = new ArrayList<>();
     private static final Random random = new Random();
     public static Title.Times times = Title.Times.times(Duration.ofMillis(0), Duration.ofMillis(1000), Duration.ofMillis(250));
@@ -44,10 +47,12 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(new Vantage(), this);
         getServer().getPluginManager().registerEvents(new Revenant(), this);
+        getServer().getPluginManager().registerEvents(new Ash(), this);
         getServer().getPluginManager().registerEvents(new RankCommand(), this);
         getCommand("battleroyale").setExecutor(new BattleRoyaleCommand());
         getCommand("vantage").setExecutor(new Vantage());
         getCommand("revenant").setExecutor(new Revenant());
+        getCommand("ash").setExecutor(new Ash());
         getCommand("rank").setExecutor(new RankCommand());
 
         PassRingSoundList.add("passring1");
@@ -69,7 +74,7 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
             player.sendMessage("§3§l大逃殺 §7>> §a已啟用大逃殺插件");
         }
         if (world.getName().startsWith("C") || world.getName().startsWith("Rank")) {
-            if (!CheckOutsideRingPlayer.containsKey(player)) {
+            if (!CheckOutsideRingPlayer.containsKey(player.getUniqueId())) {
                 PutCheckOutsideRingMap(player, world);
             }
         }
@@ -97,10 +102,14 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         World world = player.getWorld();
-        WorldBorder worldBorder = world.getWorldBorder();
+        String UsingSkill = PlaceholderAPI.setPlaceholders(player, "%mmocore_is_casting%");
+        if ((world.getName().startsWith("Ch") || world.getName().startsWith("Rank")) && UsingSkill.equals("true")) {
+            event.setCancelled(true);
+        }
         if (world.getName().startsWith("C") || world.getName().startsWith("Rank")) {
+            WorldBorder worldBorder = world.getWorldBorder();
             if (player.isFlying() && player.getGameMode().equals(GameMode.SURVIVAL)) {
-                if (!FlyingPlayer.containsKey(player)) {
+                if (!FlyingPlayer.containsKey(player.getUniqueId())) {
                     BukkitTask DamageToFlyingPlayer = new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -114,7 +123,7 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
                             }
                         }
                     }.runTaskTimer(this, 0, 30);
-                    FlyingPlayer.put(player, DamageToFlyingPlayer);
+                    FlyingPlayer.put(player.getUniqueId(), DamageToFlyingPlayer);
                 }
             }
             else {
@@ -122,7 +131,7 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
             }
 
             if (worldBorder.isInside(player.getLocation())) {
-                if (OutSideRingSound.containsKey(player)) {
+                if (OutSideRingSound.containsKey(player.getUniqueId())) {
                     player.stopSound("outsidering");
                     StopPeriodically(player, OutSideRingSound);
                 }
@@ -131,26 +140,22 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
                     int index = random.nextInt(PassRingSoundList.size());
                     player.playSound(player, PassRingSoundList.get(index), 1.0f, 1.0f);
                 }
-                else if (distance <= 15) {
-                    if (!NearRingSound.containsKey(player)) {
+                else if (distance <= 20) {
                         PlaySoundPeriodically(player, "closering", 900L, NearRingSound);
-                    }
                 }
                 else {
-                    if (NearRingSound.containsKey(player)) {
+                    if (NearRingSound.containsKey(player.getUniqueId())) {
                         player.stopSound("closering");
                         StopPeriodically(player, NearRingSound);
                     }
                 }
             }
             else {
-                if (NearRingSound.containsKey(player)) {
+                if (NearRingSound.containsKey(player.getUniqueId())) {
                     player.stopSound("closering");
                     StopPeriodically(player, NearRingSound);
                 }
-                if (!OutSideRingSound.containsKey(player)) {
-                    PlaySoundPeriodically(player, "outsidering", 1060L, OutSideRingSound);
-                }
+                PlaySoundPeriodically(player, "outsidering", 1060L, OutSideRingSound);
             }
         }
     }
@@ -161,8 +166,12 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
         World AfterWorld = event.getPlayer().getWorld();
         World BeforeWorld = event.getFrom();
         if (AfterWorld.getName().startsWith("C") || AfterWorld.getName().startsWith("Rank")) {
-            if (!CheckOutsideRingPlayer.containsKey(player)) {
+            if (!CheckOutsideRingPlayer.containsKey(player.getUniqueId())) {
                 PutCheckOutsideRingMap(player, AfterWorld);
+            }
+            PlayerData playerData = PlayerData.get(player.getUniqueId());
+            if (playerData.isCasting()) {
+                playerData.leaveSkillCasting(true);
             }
         }
         if (BeforeWorld.getName().startsWith("C") || BeforeWorld.getName().startsWith("Rank")) {
@@ -225,6 +234,14 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerEnterCastingMode(PlayerEnterCastingModeEvent event) {
+        World world = event.getPlayer().getWorld();
+        if (world.getName().startsWith("Ch") || world.getName().startsWith("Rank")) {
+            event.setCancelled(true);
+        }
+    }
+
     public void RemoveHealth(Player player, double amount) {
         double PlayerHealth = player.getHealth();
         double PlayerMaxHealth = player.getMaxHealth();
@@ -249,26 +266,29 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
         return Math.min(distanceX, distanceZ);
     }
 
-    public void PlaySoundPeriodically(Player player, String sound, long intervalTicks, Map<Player, BukkitTask> soundMap) {
-        BukkitTask SoundPlayer = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (player.isOnline()) {
-                    player.playSound(player, sound, 1.0f, 1.0f);
+
+    public void PlaySoundPeriodically(Player player, String sound, long intervalTicks, Map<UUID, BukkitTask> soundMap) {
+        if (!soundMap.containsKey(player.getUniqueId())) {
+            BukkitTask SoundPlayer = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (player.isOnline()) {
+                        player.playSound(player, sound, 1.0f, 1.0f);
+                    }
+                    else {
+                        StopPeriodically(player, soundMap);
+                    }
                 }
-                else {
-                    StopPeriodically(player, soundMap);
-                }
-            }
-        }.runTaskTimer(this, 0, intervalTicks);
-        soundMap.put(player, SoundPlayer);
+            }.runTaskTimerAsynchronously(this, 0, intervalTicks);
+            soundMap.put(player.getUniqueId(), SoundPlayer);
+        }
     }
 
-    public void StopPeriodically(Player player, Map<Player, BukkitTask> Map) {
-        BukkitTask Task = Map.get(player);
+    public void StopPeriodically(Player player, Map<UUID, BukkitTask> Map) {
+        BukkitTask Task = Map.get(player.getUniqueId());
         if (Task != null) {
             Task.cancel();
-            Map.remove(player);
+            Map.remove(player.getUniqueId());
         }
     }
 
@@ -313,15 +333,23 @@ public final class BattleRoyale extends JavaPlugin implements Listener {
                         }
                     }
                 }
+                if (world.getName().startsWith("Ch") || world.getName().startsWith("Rank")) {
+                    String UsingSkill = PlaceholderAPI.setPlaceholders(player, "%mmocore_is_casting%");
+                    if (UsingSkill.equals("true")) {
+                        Title title = Title.title(Component.text("§c不要使用技能!"), Component.text(""), times);
+                        player.showTitle(title);
+                        RemoveHealth(player, 0.5);
+                    }
+                }
             }
         }.runTaskTimer(this, 0, 30);
-        CheckOutsideRingPlayer.put(player, CheckOutsideRingPlayerTimer);
+        CheckOutsideRingPlayer.put(player.getUniqueId(), CheckOutsideRingPlayerTimer);
     }
 
     public void PlayRingSound(World world, List<String> SoundList) {
         int index = random.nextInt(SoundList.size());
         world.getPlayers().forEach((e) -> {
-            if (GetPlayerDistanceToBorder(e, world.getWorldBorder()) <= 20 && world.getWorldBorder().isInside(e.getLocation())) {
+            if (GetPlayerDistanceToBorder(e, world.getWorldBorder()) <= 30 && world.getWorldBorder().isInside(e.getLocation())) {
                 e.playSound(e, SoundList.get(index), 1.0f, 1.0f);
             }
         });

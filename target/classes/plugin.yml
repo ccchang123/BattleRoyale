@@ -3,6 +3,7 @@ version: '1.0-SNAPSHOT'
 main: cc.battleroyale.BattleRoyale
 api-version: "1.20"
 authors: [ cc_chang ]
+softdepend: [ PlaceholderAPI ]
 description: BattleRoyale
 commands:
   battleroyale:
@@ -17,6 +18,10 @@ commands:
     description: Skill of revenant.
     usage: /<command> (player)
     permission: BattleRoyale.skill.revenant
+  ash:
+    description: Skill of ash.
+    usage: /<command> (player)
+    permission: BattleRoyale.skill.ash
   rank:
     description: Commands of the Rank mode Battle Royale.
     usage: /<command> [args]

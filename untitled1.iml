@@ -69,5 +69,7 @@
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.jetbrains:annotations:19.0.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: io.lumine:Mythic-Dist:5.2.1" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: net.luckperms:api:5.4" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: me.clip:placeholderapi:2.10.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: net.Indyuce:MMOCore-API:1.12-SNAPSHOT" level="project" />
   </component>
 </module>

@@ -24,30 +24,31 @@ import java.util.List;
 
 public class Vantage implements CommandExecutor, Listener {
     private final Plugin plugin = BattleRoyale.getProvidingPlugin(this.getClass());
-    public static Set<Player> TaggedByVantage = new HashSet<>();
-    public static Map<Player, BukkitTask> Timers = new HashMap<>();
+    public static Set<UUID> TaggedByVantage = new HashSet<>();
+    public static Map<UUID, BukkitTask> Timers = new HashMap<>();
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (sender instanceof ConsoleCommandSender) {
             Player player = Bukkit.getPlayer(args[0]);
             if (player != null) {
-                if (TaggedByVantage.contains(player)) {
-                    BukkitTask timer = Timers.get(player);
+                if (TaggedByVantage.contains(player.getUniqueId())) {
+                    BukkitTask timer = Timers.get(player.getUniqueId());
                     if (timer != null) {
                         timer.cancel();
                     }
                 }
-                TaggedByVantage.add(player);
+                TaggedByVantage.add(player.getUniqueId());
                 BossBar bossbar = BossBar.bossBar(Component.text("§c已被標記"), 1, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
                 BukkitTask timer = new BukkitRunnable() {
                     @Override
                     public void run() {
-                        TaggedByVantage.remove(player);
-                        Timers.remove(player);
+                        TaggedByVantage.remove(player.getUniqueId());
+                        Timers.remove(player.getUniqueId());
                         player.hideBossBar(bossbar);
                     }
                 }.runTaskLater(plugin, 200L);
-                Timers.put(player, timer);
+                Timers.put(player.getUniqueId(), timer);
                 player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200,0, false, false, false));
                 player.sendMessage("§c§l已被標記, 所受傷害變為 1.5 倍");
                 List<String> SoundList = new ArrayList<>();
@@ -68,7 +69,7 @@ public class Vantage implements CommandExecutor, Listener {
             return;
         }
         Player player = (Player) event.getEntity();
-        if (TaggedByVantage.contains(player)) {
+        if (TaggedByVantage.contains(player.getUniqueId())) {
             event.setDamage(event.getDamage() * 1.5);
         }
     }

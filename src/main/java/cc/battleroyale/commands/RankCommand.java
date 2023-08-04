@@ -2,6 +2,7 @@ package cc.battleroyale.commands;
 
 import cc.battleroyale.BattleRoyale;
 import de.jeff_media.chestsort.api.ChestSortEvent;
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -34,9 +35,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.Duration;
 import java.util.*;
-
-import static cc.battleroyale.BattleRoyale.times;
 
 public class RankCommand implements CommandExecutor, Listener {
     private final Plugin plugin = BattleRoyale.getProvidingPlugin(this.getClass());
@@ -46,8 +46,13 @@ public class RankCommand implements CommandExecutor, Listener {
     public static Map<Player, Long> SurviveTime = new HashMap<>();
     public static Set<UUID> LeftPlayer = new HashSet<>();
     public static Map<World, Player> Champion = new HashMap<>();
+    public static Map<World, Player> KillLeader = new HashMap<>();
+    public static Map<World, Double> MaxDamage = new HashMap<>();
     public static Map<Player, Integer> PlayerKilledChampion = new HashMap<>();
+    public static Map<Player, Integer> PlayerKilledKillLeader = new HashMap<>();
     public static Map<Player, BukkitTask> UsingSurvivalItem = new HashMap<>();
+    Title.Times times = Title.Times.times(Duration.ofMillis(0), Duration.ofMillis(3000), Duration.ofMillis(250));
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (sender instanceof ConsoleCommandSender) {
@@ -91,15 +96,16 @@ public class RankCommand implements CommandExecutor, Listener {
             else if (args[0].equals("init")) {
                 World world = sender.getServer().getWorld(args[1]);
                 world.getPlayers().forEach((e) -> {
-                    e.setAbsorptionAmount(0);
-                    e.setFoodLevel(20);
                     PlayerDamage.remove(e);
                     PlayerKilled.remove(e);
                     SurviveTime.remove(e);
                     PlayerKilledChampion.remove(e);
+                    PlayerKilledKillLeader.remove(e);
                 });
                 RankStartTime.remove(world);
                 Champion.remove(world);
+                KillLeader.remove(world);
+                MaxDamage.remove(world);
             }
         }
         return true;
@@ -108,16 +114,39 @@ public class RankCommand implements CommandExecutor, Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         World world = event.getDamager().getWorld();
-        if (!RankStartTime.containsKey(world) && world.getName().startsWith("Rank")) {
-            event.setCancelled(true);
-        }
-        if ((event.getDamager() instanceof Player) && world.getName().startsWith("Rank")) {
+        if (event.getDamager() instanceof Player) {
             Player player = (Player) event.getDamager();
-            double damage = event.getDamage();
-            if (PlayerDamage.containsKey(player)) {
-                damage += PlayerDamage.get(player);
+            if ((world.getName().startsWith("Ch") || world.getName().startsWith("Rank"))) {
+                String UsingSkill = PlaceholderAPI.setPlaceholders(player, "%mmocore_is_casting%");
+                if (UsingSkill.equals("true")) {
+                    event.setCancelled(true);
+                }
             }
-            PlayerDamage.put(player, damage);
+            if (world.getName().startsWith("Rank")) {
+                if (!RankStartTime.containsKey(world)) {
+                    event.setCancelled(true);
+                }
+                else {
+                    double damage = event.getDamage();
+                    if (PlayerDamage.containsKey(player)) {
+                        damage += PlayerDamage.get(player);
+                    }
+                    PlayerDamage.put(player, damage);
+
+                    if (damage >= 300) {
+                        double maxDamage;
+                        if (MaxDamage.containsKey(world)) {
+                            maxDamage = MaxDamage.get(world);
+                            if (damage >= maxDamage + 50) {
+                                NewKillLeader(world, player, damage);
+                            }
+                        }
+                        else {
+                            NewKillLeader(world, player, damage);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -131,26 +160,46 @@ public class RankCommand implements CommandExecutor, Listener {
             if (RankStartTime.containsKey(world)) {
                 SurviveTime.put(dead, System.currentTimeMillis() - RankStartTime.get(world));
             }
+            if (killer != null) {
+                int kills = 1;
+                if (PlayerKilled.containsKey(killer)) {
+                    kills += PlayerKilled.get(killer);
+                }
+                PlayerKilled.put(killer, kills);
 
-            int kills = 1;
-            if (PlayerKilled.containsKey(killer)) {
-                kills += PlayerKilled.get(killer);
-            }
-            PlayerKilled.put(killer, kills);
-
-            if (Champion.get(world).equals(dead)) {
                 List<String> SoundList = new ArrayList<>();
                 Random random = new Random();
-                SoundList.add("championeliminated1");
-                SoundList.add("championeliminated2");
-                int index = random.nextInt(SoundList.size());
-                world.getPlayers().forEach((e) -> {
-                    e.sendMessage("§c§l注意 §3§l冠軍已被消滅");
-                    e.playSound(e, SoundList.get(index), 1.0f, 1.0f);
-                });
-                PlayerKilledChampion.put(killer, 1);
+                if (Champion.get(world).equals(dead)) {
+                    SoundList.add("championeliminated1");
+                    SoundList.add("championeliminated2");
+                    int index = random.nextInt(SoundList.size());
+                    world.getPlayers().forEach((e) -> {
+                        e.sendMessage("§c§l注意 §3§l冠軍已被消滅");
+                        e.playSound(e, SoundList.get(index), 1.0f, 1.0f);
+                    });
+                    PlayerKilledChampion.put(killer, 1);
+                    Title title = Title.title(Component.text("§3§l你擊殺了冠軍"), Component.text(""), times);
+                    killer.showTitle(title);
+                }
+                else if (KillLeader.get(world).equals(dead)) {
+                    SoundList.add("killleadereliminated1");
+                    SoundList.add("killleadereliminated2");
+                    int index = random.nextInt(SoundList.size());
+                    world.getPlayers().forEach((e) -> {
+                        e.sendMessage("§c§l注意 §3§l擊殺首領已被消滅");
+                        e.playSound(e, SoundList.get(index), 1.0f, 1.0f);
+                    });
+                    int killkillleader = 1;
+                    if (PlayerKilledKillLeader.containsKey(killer)) {
+                        killkillleader += PlayerKilledKillLeader.get(killer);
+                    }
+                    KillLeader.remove(world);
+                    MaxDamage.remove(world);
+                    PlayerKilledKillLeader.put(killer, killkillleader);
+                    Title title = Title.title(Component.text("§3§l你擊殺了擊殺首領"), Component.text(""), times);
+                    killer.showTitle(title);
+                }
             }
-
             HaveChampion(world, 2);
         }
     }
@@ -197,13 +246,13 @@ public class RankCommand implements CommandExecutor, Listener {
         World world = player.getWorld();
         int slot = event.getSlot();
         if ((world.getName().startsWith("Ch") || world.getName().startsWith("Rank")) && player.getGameMode().equals(GameMode.SURVIVAL)) {
-            if (UsingSurvivalItem.containsKey(player) || (slot >= 9 && slot <= 17) || event.getClick().equals(ClickType.DOUBLE_CLICK)) {
+            if (UsingSurvivalItem.containsKey(player) || (slot >= 9 && slot <= 17) || slot == 40 || event.getClick().equals(ClickType.DOUBLE_CLICK)) {
                 event.setCancelled(true);
                 player.updateInventory();
             }
             else if (slot >= 18 && slot <= 26) {
                 if (!((slot <= 20 && player.hasPermission("battleroyale.backpack.1")) ||
-                    (slot <= 23 && player.hasPermission("battleroyale.backpack.2")) ||
+                      (slot <= 23 && player.hasPermission("battleroyale.backpack.2")) ||
                     player.hasPermission("battleroyale.backpack.3"))) {
                     event.setCancelled(true);
                     player.updateInventory();
@@ -309,6 +358,25 @@ public class RankCommand implements CommandExecutor, Listener {
         UsingSurvivalItem.put(player, timer);
     }
 
+    public void NewKillLeader(World world, Player player, double damage) {
+        MaxDamage.put(world, damage);
+        if (!KillLeader.get(world).equals(player)) {
+            KillLeader.put(world, player);
+            List<String> SoundList = new ArrayList<>();
+            Random random = new Random();
+            SoundList.add("newkillleader1");
+            SoundList.add("newkillleader2");
+            int index = random.nextInt(SoundList.size());
+            world.getPlayers().forEach((e) -> {
+                e.playSound(e, SoundList.get(index), 1.0f, 1.0f);
+                e.sendMessage("§c§l注意 §6§l" + player.getName() + " §3§l是新的擊殺首領 他造成了 §6§l" + (int) damage + " §3§l點傷害");
+            });
+            player.playSound(player, "youarenewkillleader", 1.0f, 1.0f);
+            Title title = Title.title(Component.text("§3§l你是新的擊殺首領"), Component.text(""), times);
+            player.showTitle(title);
+        }
+    }
+
     public void HaveChampion(World world, int amount) {
         int SurviveAmount = 0;
         for (Player e : world.getPlayers()) {
@@ -346,25 +414,31 @@ public class RankCommand implements CommandExecutor, Listener {
                 int damage = (int) Math.round(PlayerDamage.get(e));
                 int score = (damage < 625) ? damage / 25 : (int) Math.sqrt(damage);
                 RP += score;
-                e.sendMessage("§3§l造成的傷害: §6§l" + damage + " (" + score + " RP)");
+                e.sendMessage("§3§l造成的傷害: §6§l" + damage + " 點 (" + score + " RP)");
                 PlayerDamage.remove(e);
             }
             if (PlayerKilled.containsKey(e)) {
                 int kills = PlayerKilled.get(e);
                 RP += kills * 15;
-                e.sendMessage("§3§l擊殺數: §6§l" + kills + " (" + kills * 15 + " RP)");
+                e.sendMessage("§3§l擊殺玩家: §6§l" + kills + " 次 (" + kills * 15 + " RP)");
                 PlayerKilled.remove(e);
             }
             if (PlayerKilledChampion.containsKey(e)) {
                 int kills = PlayerKilledChampion.get(e);
                 RP += kills * 20;
-                e.sendMessage("§3§l擊殺冠軍: §6§l" + kills + " (" + kills * 20 + " RP)");
+                e.sendMessage("§3§l擊殺冠軍: §6§l" + kills + " 次 (" + kills * 20 + " RP)");
                 PlayerKilledChampion.remove(e);
+            }
+            if (PlayerKilledKillLeader.containsKey(e)) {
+                int kills = PlayerKilledKillLeader.get(e);
+                RP += kills * 20;
+                e.sendMessage("§3§l擊殺擊殺首領: §6§l" + kills + " 次 (" + kills * 20 + " RP)");
+                PlayerKilledKillLeader.remove(e);
             }
             if (SurviveTime.containsKey(e)) {
                 int seconds = (int) (SurviveTime.get(e) / 1000);
                 RP += seconds / 30;
-                e.sendMessage("§3§l存活時間: §6§l" + seconds + " (" + seconds / 30 + " RP)");
+                e.sendMessage("§3§l存活時間: §6§l" + seconds + " 秒 (" + seconds / 30 + " RP)");
                 SurviveTime.remove(e);
             }
             e.sendMessage("");
